@@ -1,7 +1,7 @@
 --[[
     Sane Little Helper
     Developer: #samauelisdumbaf
-    Version: 1.0.0
+    Version: 1.0.1 (Fixed syntax error for JJSploit compatibility)
     Description: Advanced Roblox exploitation tool for remote event/function interception, logging, and replay.
 ]]
 
@@ -19,7 +19,7 @@ local success, err = pcall(function()
         Info = {
             Name = "Sane Little Helper",
             Author = "#samauelisdumbaf",
-            Version = "1.0.0"
+            Version = "1.0.1"
         },
         Config = {
             MaxLogEntries = 250,
@@ -134,7 +134,7 @@ local success, err = pcall(function()
     end
     
     function SLH.Utils.GetRemotePath(remote)
-        if not remote or notราคาremote.Parent then return "UnknownPath" end
+        if not remote or not remote.Parent then return "UnknownPath" end -- FIXED LINE!
         local path = {}
         local current = remote
         while current ~= game and current.Parent do
@@ -490,7 +490,7 @@ local success, err = pcall(function()
             remote = SLH.Utils.FindRemoteByPath(logEntry.Path)
         end
 
-        if not remote or notราคาremote.Parent then -- Final check
+        if not remote or not remote.Parent then -- Final check
             SLH.Utils.PrintError("RemoteActions", "Remote for replay not found or invalid:", logEntry.Name, logEntry.Path)
             if SLH.State.UI.Initialized then SLH.UserInterface.ShowToast("Error: Remote " .. logEntry.Name .. " not found.", 5, "Error") end
             return false, "Remote not found"
@@ -743,13 +743,18 @@ local success, err = pcall(function()
         -- Load UI Library
         local uiLibLoaded = false
         if SLH.Config.UI_Lib_URL and type(SLH.Config.UI_Lib_URL) == "string" then
-            local success, result = pcall(loadstring(game:HttpGet(SLH.Config.UI_Lib_URL, true)))
-            if success and result and type(result) == "table" and result.MakeWindow then -- Check if it looks like Orion
-                SLH.UILib = result
-                uiLibLoaded = true
-                SLH.Utils.PrintInfo("Main", "UI Library loaded successfully from URL.")
+            local success_httplib, result_httplib = pcall(game.HttpGet, game, SLH.Config.UI_Lib_URL, true)
+            if success_httplib and type(result_httplib) == "string" then
+                local success_loadlib, result_loadlib = pcall(loadstring(result_httplib))
+                if success_loadlib and result_loadlib and type(result_loadlib) == "table" and result_loadlib.MakeWindow then -- Check if it looks like Orion
+                    SLH.UILib = result_loadlib
+                    uiLibLoaded = true
+                    SLH.Utils.PrintInfo("Main", "UI Library loaded successfully from URL.")
+                else
+                    SLH.Utils.PrintError("Main", "Failed to execute UI Library from URL or it's invalid. Loadstring result/error:", result_loadlib)
+                end
             else
-                SLH.Utils.PrintError("Main", "Failed to load UI Library from URL or it's invalid. Result/Error:", result)
+                SLH.Utils.PrintError("Main", "Failed to HTTPGet UI Library from URL. Error:", result_httplib)
             end
         end
         
@@ -782,10 +787,8 @@ local success, err = pcall(function()
             SLH.RemoteInterceptor.StartGlobalHooking()
             if SLH.State.UI.Initialized and SLH.State.UI.Tabs.Main then
                 -- Try to update the button text if UI is already setup
-                local mainTabButtons = SLH.State.UI.Tabs.Main:GetChildren() -- Assuming GetChildren or similar
-                if mainTabButtons and mainTabButtons[1] then -- Assuming first button is toggle
-                    mainTabButtons[1]:SetText("Toggle Hooking (Currently: ON)")
-                end
+                -- This part is tricky as UI elements might not be directly accessible like this
+                -- It's better if the button callback itself handles its text update properly
             end
         end
         
@@ -801,14 +804,14 @@ local success, err = pcall(function()
         warn("[SLH FATAL] Initialization Error: " .. tostring(initError))
         -- Attempt to show a basic print message if UI failed very early
         print(SLH.Info.Name .. " FATAL ERROR DURING INITIALIZATION: " .. tostring(initError))
-        print("Stack trace: " .. debug.traceback())
+        print("Stack trace: " .. debug.traceback(initError, 2))
     end
 
 end) -- End of main pcall wrapper
 
 if not success then
     warn("[SLH SCRIPT LOAD FAILED] Error: ", err)
-    print("Stack trace: " .. debug.traceback())
+    print("Stack trace: " .. debug.traceback(err, 2))
 end
 
 -- To make it easy to toggle UI from executor if script is already run:
